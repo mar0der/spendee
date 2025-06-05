@@ -99,3 +99,15 @@ This is a list of all endpoints I've discovered. So far only a subset is impleme
 ## Contributing
 
 If you can improve anything in this repo, feel free to add a pull request or add an issue!
+
+## PHP 8.2 Docker Environment Example
+
+The `php_docker_env` directory contains a simple development setup with PHP 8.2, nginx and MySQL running in two Docker containers. To start the environment, install [Docker](https://www.docker.com/) and run:
+
+```bash
+cd php_docker_env
+docker compose up
+```
+
+Open `http://localhost:8080` in your browser to view the default `phpinfo()` page served by nginx. The MySQL database is exposed on port `3306` with credentials defined in `docker-compose.yml`.
+
