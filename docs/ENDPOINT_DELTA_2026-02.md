@@ -87,3 +87,17 @@ To confirm payload schemas and methods for auth-gated routes, run tests with val
 - `Device-Uuid`
 
 This will allow us to replace "unauthorized but routable" assumptions with exact request/response contracts.
+
+## Authenticated probes (validated)
+
+Validated with a live user token on 2026-02-17:
+
+- `GET /v1.4/user-get-profile` -> `SUCCESS` (`api.user-get-profile`)
+- `POST /v1/wallet-get-all` -> `SUCCESS` (`api.wallet-get-all`)
+- `POST /v1.8/wallet-get-transactions` -> `SUCCESS` (`api.wallet-get-transactions`)
+  - Works with `{}`, `{"wallet_id": null}`, and `{"wallets_ids":[]}`
+- `GET /v1.7/get-budgets` -> `SUCCESS` (`api.get-budgets`)
+- `POST /v1.7/get-budgets` -> HTTP `405` (`api.get-budgets`) -> method mismatch
+- `POST /v3/auth/logout` -> HTTP `200`, non-JSON empty HTML response
+- `POST /v2/destroyCredentials` -> JSON error if no login id provided (`api.aggreator-login-destroy`)
+- `POST /v2/url?...` with tested payload -> HTTP `404` (route/path likely changed or flow-dependent)

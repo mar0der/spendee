@@ -24,6 +24,7 @@ No guarantees are provided here. If you wanna use it, go for it, but do know tha
 - This fork (`mar0der/spendee`) should be treated as the maintenance line.
 - `v1.4/user-login` is deprecated by Spendee; active web login endpoint is `v3/auth/login`.
 - See `docs/REVERSE_ENGINEERING_2026-02.md` for validated endpoint and auth notes.
+- See `docs/ENDPOINT_DELTA_2026-02.md` for wrapper-vs-live delta and authenticated probe results.
 
 ## Endpoints
 

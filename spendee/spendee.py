@@ -9,20 +9,32 @@ from .exceptions import SpendeeError
 
 
 class Spendee(Session):
-    def __init__(self, email: str, password: str, base_url: str = 'https://api.spendee.com/', google_client_id: str = 'AIzaSyCCJPDxVNVFEARQ-LxH7q2aZtdQJGGFO84'):
+    def __init__(self, email: str, password: str, base_url: str = 'https://api.spendee.com/',
+                 google_client_id: str = 'AIzaSyCCJPDxVNVFEARQ-LxH7q2aZtdQJGGFO84',
+                 access_token: str = None, device_uuid: str = None):
         """
         :param email: user email to use for login
         :param password: user password to use for login
         :param base_url: base URL of the API
+        :param access_token: optional existing bearer token (for session-based auth)
+        :param device_uuid: optional existing device UUID (for session-based auth)
         """
         self.base_url = base_url
         self._email = email
         self._password = password
         self._google_client_id = google_client_id
 
-        self._access_token = None
-        self._device_uuid = None
+        self._access_token = access_token
+        self._device_uuid = device_uuid
         super(Spendee, self).__init__()
+
+    def set_session(self, access_token: str, device_uuid: str = None):
+        """
+        Sets an existing authenticated Spendee session.
+        Useful for accounts authenticated via external identity providers.
+        """
+        self._access_token = access_token
+        self._device_uuid = device_uuid
 
     def _build_url(self, version: str, url: str):
         """
