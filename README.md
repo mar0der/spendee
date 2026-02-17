@@ -18,6 +18,13 @@ No guarantees are provided here. If you wanna use it, go for it, but do know tha
 - make dates from the response datetime objects
 - release on pypi
 
+## Maintenance Status (Checked 2026-02-16)
+
+- Upstream `dionysio/spendee` is archived and no longer actively maintained.
+- This fork (`mar0der/spendee`) should be treated as the maintenance line.
+- `v1.4/user-login` is deprecated by Spendee; active web login endpoint is `v3/auth/login`.
+- See `docs/REVERSE_ENGINEERING_2026-02.md` for validated endpoint and auth notes.
+
 ## Endpoints
 
 This is a list of all endpoints I've discovered. So far only a subset is implemented:
@@ -66,11 +73,13 @@ This is a list of all endpoints I've discovered. So far only a subset is impleme
 - [ ] v1.8/create-transaction-template
 - [ ] v1.8/delete-transaction-template
 - [ ] v2/destroyCredentials
+- [ ] v3/auth/login
+- [ ] v3/auth/logout
 - [X] v1.3/banks-get-all
 - [X] v1.3/category-image-ids
 - [X] v1.4/user-get-profile
-- [X] v1.4/user-login
-- [X] v1.4/user-logout
+- [ ] v1.4/user-login (deprecated by API)
+- [X] v1.4/user-logout (legacy)
 - [X] v1.4/wallet-create-category
 - [X] v1.4/wallet-update-category
 - [X] v1.5/user-registration
@@ -110,4 +119,3 @@ docker compose up
 ```
 
 Open `http://localhost:8080` in your browser to view the default `phpinfo()` page served by nginx. The MySQL database is exposed on port `3306` with credentials defined in `docker-compose.yml`.
-

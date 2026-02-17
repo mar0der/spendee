@@ -214,7 +214,7 @@ class Spendee(Session):
         result = super(Spendee, self).post(url=url, version=version, **kwargs)
         self._device_uuid = result['device_uuid']
 
-    def user_logout(self, version: str = 'v1.4', url: str = 'user-logout', **kwargs):
+    def user_logout(self, version: str = 'v3', url: str = 'auth/logout', **kwargs):
         """
         Logout the user
 
