@@ -14,11 +14,13 @@ Python client focused on **confirmed working** Spendee integrations as of Februa
   - User profile
   - Wallet list
   - Categories
+  - Category filtering helper by type/wallet
   - Budgets (GET)
   - Legacy transaction list endpoint
 - Firestore transaction CRUD (real app path):
   - Create transaction
   - Update transaction note
+  - Update transaction category
   - Delete transaction
   - Fetch transaction document
 

@@ -273,6 +273,35 @@ class Spendee(Session):
     def get_all_user_categories(self):
         return self.get(url="get-all-user-categories", version="v1.6")
 
+    def list_categories(
+        self,
+        category_type: Optional[str] = None,
+        wallet_uuid: Optional[str] = None,
+        active_only: bool = True,
+    ) -> List[Dict[str, Any]]:
+        categories = self.get_all_user_categories()
+        filtered: List[Dict[str, Any]] = []
+
+        for category in categories:
+            if active_only and category.get("status") != "active":
+                continue
+            if category_type and category.get("type") != category_type:
+                continue
+
+            if wallet_uuid:
+                settings = category.get("wallets_settings") or []
+                if settings:
+                    visible = any(
+                        setting.get("wallet_uuid") == wallet_uuid and setting.get("visible") in (1, True)
+                        for setting in settings
+                    )
+                    if not visible:
+                        continue
+
+            filtered.append(category)
+
+        return filtered
+
     def get_budgets(self):
         # Confirmed: GET works, POST returns 405.
         return self.get(url="get-budgets", version="v1.7")
@@ -441,6 +470,46 @@ class Spendee(Session):
                         },
                     },
                     "updateMask": {"fieldPaths": ["note"]},
+                    "currentDocument": {"exists": True},
+                },
+                {
+                    "transform": {
+                        "document": doc_path,
+                        "fieldTransforms": [
+                            {"fieldPath": "updatedAt", "setToServerValue": "REQUEST_TIME"}
+                        ],
+                    },
+                    "currentDocument": {"exists": True},
+                },
+            ]
+        }
+
+        response = super().post(self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def update_transaction_category_firestore(
+        self,
+        user_uuid: str,
+        wallet_uuid: str,
+        transaction_uuid: str,
+        category_uuid: str,
+    ) -> Dict[str, Any]:
+        doc_path = (
+            f"projects/{self.firestore_project}/databases/(default)/documents/"
+            f"users/{user_uuid}/wallets/{wallet_uuid}/transactions/{transaction_uuid}"
+        )
+
+        payload = {
+            "writes": [
+                {
+                    "update": {
+                        "name": doc_path,
+                        "fields": {
+                            "category": {"stringValue": category_uuid},
+                        },
+                    },
+                    "updateMask": {"fieldPaths": ["category"]},
                     "currentDocument": {"exists": True},
                 },
                 {
