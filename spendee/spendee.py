@@ -1072,9 +1072,13 @@ class Spendee(Session):
         }
         return self.put(url=url, version=version, **kwargs)
 
-    def providers(self, country: str, version: str = 'v2', url: str = 'providers', **kwargs):
+    def providers(self, country: str, version: str = 'v1.3', url: str = 'banks-get-all', **kwargs):
         """
-        Retrieves a list of all available providers of bank accounts in a country
+        Retrieves providers of bank accounts in a country.
+
+        Notes:
+        - The older `v2/providers` endpoint appears to be retired in the current web client.
+        - This method now uses `v1.3/banks-get-all` and applies a local country filter.
 
         :param country: 2 letter country code
         :rtype: list
@@ -1093,10 +1097,22 @@ class Spendee(Session):
               }
         ]
         """
-        kwargs['params'] = {
-            'country': country
-        }
-        return self.get(url=url, version=version, **kwargs)
+        result = self.get(url=url, version=version, **kwargs)
+        if isinstance(result, list):
+            providers = result
+        elif isinstance(result, dict):
+            providers = result.get('providers') or result.get('items') or result.get('result') or []
+        else:
+            providers = []
+
+        if not country:
+            return providers
+
+        country = country.upper()
+        return [
+            provider for provider in providers
+            if str(provider.get('countryCode') or provider.get('country_code') or '').upper() == country
+        ]
 
     def connect_bank_account(self, provider_code: str, server_account_picker: bool = False,
                              oauth_return_url: str = "https://app.spendee.com/dashboard/connect-bank/oauth-return",
@@ -1133,6 +1149,18 @@ class Spendee(Session):
             "accounts": [{'id': account, 'isVisible': True} for account in accounts]
         }
         return self.put(url=url, version=version, **kwargs)
+
+    def destroy_credentials(self, credential_id: int = None, version: str = 'v2',
+                            url: str = 'destroyCredentials', **kwargs):
+        """
+        Revokes/disconnects bank credentials in Spendee's bank aggregator API.
+
+        :param credential_id: optional credential identifier
+        :rtype: dict
+        """
+        if credential_id is not None:
+            kwargs['json'] = {"credentialId": credential_id}
+        return self.post(url=url, version=version, **kwargs)
 
     def create_transfer(self, source_wallet_id: int, destination_wallet_id: int, user_id: int,
                         amount: float, currency: str, repeat: str = 'never', reminder: str = 'never', note: str = None,

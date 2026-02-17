@@ -101,7 +101,7 @@ This is a list of all endpoints I've discovered. So far only a subset is impleme
 - [X] v1/wallet-update
 - [X] v2/countries
 - [X] v2/logins/refresh
-- [X] v2/providers
+- [ ] v2/providers (appears retired in current web client)
 - [X] v2/url
 - [X] v2/visible
 
