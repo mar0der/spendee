@@ -24,6 +24,9 @@ Python client focused on **confirmed working** Spendee integrations as of Februa
   - Update transaction category
   - Delete transaction
   - Fetch transaction document
+- Firestore wallet helpers:
+  - Fetch wallet document
+  - Rename wallet
 
 ## Why Slim
 

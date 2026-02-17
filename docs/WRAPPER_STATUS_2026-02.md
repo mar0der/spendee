@@ -17,6 +17,9 @@
   - Update note via Firestore `documents:commit` write+transform
   - Update category via Firestore `documents:commit` write+transform
   - Delete transaction via Firestore document delete
+- Firestore wallet path:
+  - Read wallet document via Firestore document get
+  - Rename wallet via Firestore `documents:commit` write+transform
 - Generic read/search helpers:
   - Transaction pagination helper (`wallet_get_transactions_all`)
   - Date/amount/note/type filtered search (`search_transactions`)
@@ -50,3 +53,6 @@
 - Updated same transaction category to income category `Salary` via Firestore commit:
   - transaction UUID: `944005a4-bf48-4edc-912c-241b764e9e69`
   - category UUID set to: `21fe34fe-6cb7-40ba-91e7-c9cfc760daa6`
+- Wallet rename smoke test (and rollback) on `Dummy account`:
+  - wallet UUID: `161f588a-b708-4044-b398-bcd962e6c496`
+  - renamed to `Dummy account tmp rename test` then reverted to `Dummy account`

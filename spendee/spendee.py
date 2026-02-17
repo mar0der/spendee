@@ -496,6 +496,12 @@ class Spendee(Session):
         response.raise_for_status()
         return response.json()
 
+    def get_wallet_firestore(self, user_uuid: str, wallet_uuid: str) -> Dict[str, Any]:
+        doc_path = f"projects/{self.firestore_project}/databases/(default)/documents/users/{user_uuid}/wallets/{wallet_uuid}"
+        response = self._raw_request("GET", self._firestore_doc_url(doc_path), headers=self._firestore_headers())
+        response.raise_for_status()
+        return response.json()
+
     def list_transactions_firestore(
         self,
         user_uuid: str,
@@ -529,6 +535,40 @@ class Spendee(Session):
         response = self._raw_request("DELETE", self._firestore_doc_url(doc_path), headers=self._firestore_headers())
         response.raise_for_status()
         return True
+
+    def rename_wallet_firestore(self, user_uuid: str, wallet_uuid: str, new_name: str) -> Dict[str, Any]:
+        name = (new_name or "").strip()
+        if not name:
+            raise SpendeeError("Wallet name cannot be empty.")
+
+        doc_path = f"projects/{self.firestore_project}/databases/(default)/documents/users/{user_uuid}/wallets/{wallet_uuid}"
+        payload = {
+            "writes": [
+                {
+                    "update": {
+                        "name": doc_path,
+                        "fields": {
+                            "name": {"stringValue": name},
+                        },
+                    },
+                    "updateMask": {"fieldPaths": ["name"]},
+                    "currentDocument": {"exists": True},
+                },
+                {
+                    "transform": {
+                        "document": doc_path,
+                        "fieldTransforms": [
+                            {"fieldPath": "updatedAt", "setToServerValue": "REQUEST_TIME"}
+                        ],
+                    },
+                    "currentDocument": {"exists": True},
+                },
+            ]
+        }
+
+        response = self._raw_request("POST", self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
+        response.raise_for_status()
+        return response.json()
 
     def create_transaction_firestore(
         self,
