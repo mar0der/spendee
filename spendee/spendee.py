@@ -496,6 +496,34 @@ class Spendee(Session):
         response.raise_for_status()
         return response.json()
 
+    def list_transactions_firestore(
+        self,
+        user_uuid: str,
+        wallet_uuid: str,
+        *,
+        limit: int = 100,
+        order_by: str = "madeAt desc",
+        page_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            "pageSize": limit,
+            "orderBy": order_by,
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        doc_path = (
+            f"projects/{self.firestore_project}/databases/(default)/documents/"
+            f"users/{user_uuid}/wallets/{wallet_uuid}/transactions"
+        )
+        response = self._raw_request(
+            "GET",
+            self._firestore_doc_url(doc_path),
+            headers=self._firestore_headers(),
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def delete_transaction_firestore(self, user_uuid: str, wallet_uuid: str, transaction_uuid: str) -> bool:
         doc_path = f"projects/{self.firestore_project}/databases/(default)/documents/users/{user_uuid}/wallets/{wallet_uuid}/transactions/{transaction_uuid}"
         response = self._raw_request("DELETE", self._firestore_doc_url(doc_path), headers=self._firestore_headers())
