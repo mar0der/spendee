@@ -15,6 +15,7 @@
 - Firestore transaction path (real app behavior):
   - Create transaction via Firestore `documents:commit` write
   - Update note via Firestore `documents:commit` write+transform
+  - Update category via Firestore `documents:commit` write+transform
   - Delete transaction via Firestore document delete
 
 ## Confirmed Outdated / Removed
@@ -27,7 +28,7 @@
 ## Pending Verification
 
 - Firestore list/query helper semantics for date ranges and sort parity with app UI
-- Full transaction edit surface beyond note (category/amount/time)
+- Full transaction edit surface beyond category+note (amount/time)
 - Any remaining bank/aggregator actions (out of scope for current objective)
 
 ## Notes
@@ -43,3 +44,6 @@
 - Located user-created transaction (`note=asdfa`, `amount=-12`) and updated note via Firestore commit:
   - transaction UUID: `944005a4-bf48-4edc-912c-241b764e9e69`
   - updated note to: `asdfa edited <time>`
+- Updated same transaction category to income category `Salary` via Firestore commit:
+  - transaction UUID: `944005a4-bf48-4edc-912c-241b764e9e69`
+  - category UUID set to: `21fe34fe-6cb7-40ba-91e7-c9cfc760daa6`
