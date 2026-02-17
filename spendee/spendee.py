@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -171,6 +171,9 @@ class Spendee(Session):
             headers["Device-Uuid"] = self._device_uuid
         return headers
 
+    def _raw_request(self, method: str, url: str, **kwargs):
+        return Session.request(self, method=method, url=url, **kwargs)
+
     def request(self, method: str, url: str, version: str = "v1", headers=None, params=None, **kwargs):
         if params is None:
             params = {
@@ -223,7 +226,7 @@ class Spendee(Session):
             "returnSecureToken": True,
         }
         url = f"https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key={self._google_client_id}"
-        response = super().post(url=url, json=body)
+        response = self._raw_request("POST", url=url, json=body)
         response.raise_for_status()
         return response.json()["refreshToken"]
 
@@ -233,7 +236,7 @@ class Spendee(Session):
             "grant_type": "refresh_token",
         }
         url = f"https://securetoken.googleapis.com/v1/token?key={self._google_client_id}"
-        response = super().post(url=url, json=body)
+        response = self._raw_request("POST", url=url, json=body)
         response.raise_for_status()
         return response.json()["access_token"]
 
@@ -312,6 +315,135 @@ class Spendee(Session):
             payload["wallet_id"] = wallet_id
         return self.post(url="wallet-get-transactions", version="v1.8", json=payload)
 
+    @staticmethod
+    def _parse_transaction_datetime(value: Optional[str], offset: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+
+        parsed: Optional[datetime] = None
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                parsed = datetime.strptime(value, fmt)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            return None
+
+        if offset and len(offset) == 6 and offset[0] in ("+", "-") and offset[3] == ":":
+            sign = 1 if offset[0] == "+" else -1
+            try:
+                hours = int(offset[1:3])
+                minutes = int(offset[4:6])
+                tz = timezone(sign * timedelta(hours=hours, minutes=minutes))
+                return parsed.replace(tzinfo=tz)
+            except ValueError:
+                pass
+
+        return parsed.replace(tzinfo=timezone.utc)
+
+    @staticmethod
+    def _decimal_from_any(value: Any) -> Optional[Decimal]:
+        if value is None:
+            return None
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return None
+
+    def wallet_get_transactions_all(
+        self,
+        wallet_id: int,
+        *,
+        page_limit: int = 100,
+        max_pages: int = 20,
+        stop_before: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        transactions: List[Dict[str, Any]] = []
+        offset = 0
+
+        for _ in range(max_pages):
+            page = self.wallet_get_transactions(wallet_id=wallet_id, offset=offset, limit=page_limit) or []
+            if not page:
+                break
+            transactions.extend(page)
+
+            if stop_before is not None:
+                oldest: Optional[datetime] = None
+                for tx in page:
+                    tx_dt = self._parse_transaction_datetime(tx.get("start_date"), tx.get("offset"))
+                    if tx_dt is None:
+                        continue
+                    if oldest is None or tx_dt < oldest:
+                        oldest = tx_dt
+                if oldest is not None and oldest <= stop_before:
+                    break
+
+            if len(page) < page_limit:
+                break
+            offset += len(page)
+
+        return transactions
+
+    def search_transactions(
+        self,
+        *,
+        wallet_id: int,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        amount: Optional[Decimal] = None,
+        amount_tolerance: Decimal = Decimal("0.01"),
+        note_query: Optional[str] = None,
+        type_filter: Optional[str] = None,
+        include_pending: Optional[bool] = None,
+        page_limit: int = 100,
+        max_pages: int = 20,
+    ) -> List[Dict[str, Any]]:
+        stop_before = start - timedelta(days=2) if start is not None else None
+        rows = self.wallet_get_transactions_all(
+            wallet_id=wallet_id,
+            page_limit=page_limit,
+            max_pages=max_pages,
+            stop_before=stop_before,
+        )
+
+        note_query_norm = (note_query or "").strip().lower()
+        results: List[Dict[str, Any]] = []
+        for tx in rows:
+            tx_dt = self._parse_transaction_datetime(tx.get("start_date"), tx.get("offset"))
+            if start is not None:
+                if tx_dt is None or tx_dt < start:
+                    continue
+            if end is not None:
+                if tx_dt is None or tx_dt > end:
+                    continue
+
+            if amount is not None:
+                tx_amount = self._decimal_from_any(tx.get("amount"))
+                if tx_amount is None:
+                    continue
+                if abs(tx_amount - amount) > amount_tolerance:
+                    continue
+
+            if type_filter:
+                if str(tx.get("type", "")).upper() != type_filter.upper():
+                    continue
+
+            if include_pending is not None:
+                tx_pending = bool(tx.get("is_pending"))
+                if tx_pending != include_pending:
+                    continue
+
+            if note_query_norm:
+                note = str(tx.get("note") or "").lower()
+                description = str(tx.get("description") or "").lower()
+                if note_query_norm not in note and note_query_norm not in description:
+                    continue
+
+            results.append(tx)
+
+        return results
+
     # --------- Firestore helpers (confirmed app path) ---------
 
     def _firestore_doc_url(self, doc_path: str) -> str:
@@ -360,13 +492,13 @@ class Spendee(Session):
 
     def get_transaction_firestore(self, user_uuid: str, wallet_uuid: str, transaction_uuid: str) -> Dict[str, Any]:
         doc_path = f"projects/{self.firestore_project}/databases/(default)/documents/users/{user_uuid}/wallets/{wallet_uuid}/transactions/{transaction_uuid}"
-        response = super().get(self._firestore_doc_url(doc_path), headers=self._firestore_headers())
+        response = self._raw_request("GET", self._firestore_doc_url(doc_path), headers=self._firestore_headers())
         response.raise_for_status()
         return response.json()
 
     def delete_transaction_firestore(self, user_uuid: str, wallet_uuid: str, transaction_uuid: str) -> bool:
         doc_path = f"projects/{self.firestore_project}/databases/(default)/documents/users/{user_uuid}/wallets/{wallet_uuid}/transactions/{transaction_uuid}"
-        response = super().delete(self._firestore_doc_url(doc_path), headers=self._firestore_headers())
+        response = self._raw_request("DELETE", self._firestore_doc_url(doc_path), headers=self._firestore_headers())
         response.raise_for_status()
         return True
 
@@ -440,7 +572,7 @@ class Spendee(Session):
             ]
         }
 
-        response = super().post(self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
+        response = self._raw_request("POST", self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
         response.raise_for_status()
         return {
             "transaction_uuid": tx_uuid,
@@ -484,7 +616,7 @@ class Spendee(Session):
             ]
         }
 
-        response = super().post(self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
+        response = self._raw_request("POST", self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
         response.raise_for_status()
         return response.json()
 
@@ -524,6 +656,6 @@ class Spendee(Session):
             ]
         }
 
-        response = super().post(self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
+        response = self._raw_request("POST", self._firestore_commit_url(), headers=self._firestore_headers(), json=payload)
         response.raise_for_status()
         return response.json()

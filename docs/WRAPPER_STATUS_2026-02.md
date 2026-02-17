@@ -17,6 +17,9 @@
   - Update note via Firestore `documents:commit` write+transform
   - Update category via Firestore `documents:commit` write+transform
   - Delete transaction via Firestore document delete
+- Generic read/search helpers:
+  - Transaction pagination helper (`wallet_get_transactions_all`)
+  - Date/amount/note/type filtered search (`search_transactions`)
 
 ## Confirmed Outdated / Removed
 

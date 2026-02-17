@@ -15,6 +15,7 @@ Python client focused on **confirmed working** Spendee integrations as of Februa
   - Wallet list
   - Categories
   - Category filtering helper by type/wallet
+  - Transaction search helpers (`wallet_get_transactions_all`, `search_transactions`)
   - Budgets (GET)
   - Legacy transaction list endpoint
 - Firestore transaction CRUD (real app path):
@@ -79,6 +80,13 @@ client.set_session(access_token="<bearer>", device_uuid="<device-uuid>")
 profile = client.user_get_profile()
 wallets = client.wallet_get_all()
 wallet_map = client.wallet_uuid_map()
+
+# Generic transaction search by date + amount + note
+matches = client.search_transactions(
+    wallet_id=6044754,
+    amount=Decimal("-18.00"),
+    note_query="mcdonald",
+)
 ```
 
 ## Example (password once, then auto-refresh)
