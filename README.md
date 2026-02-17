@@ -54,6 +54,8 @@ Use browser-assisted bootstrap:
    - Optional but recommended: Firebase `refreshToken` if available
 3. Call `bootstrap_from_browser(...)` once.
 4. Wrapper persists credentials for next OpenClaw runs.
+5. If needed, print built-in user instructions:
+   - `Spendee.print_browser_bootstrap_instructions()`
 
 ## Verification Matrix
 
@@ -104,4 +106,13 @@ client.bootstrap_from_browser(
 )
 
 profile = client.user_get_profile()
+```
+
+## Example (LLM/helper prompt output)
+
+```python
+from spendee import Spendee
+
+instructions = Spendee.get_browser_bootstrap_instructions()
+print(instructions)
 ```

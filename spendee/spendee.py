@@ -23,6 +23,26 @@ class Spendee(Session):
     - https://firestore.googleapis.com/ (real app transaction writes)
     """
     WEB_LOGIN_URL = "https://app.spendee.com"
+    BROWSER_BOOTSTRAP_INSTRUCTIONS = """Spendee browser bootstrap (Apple/Google SSO):
+
+1. Open {web_login_url} and sign in.
+2. Open browser DevTools:
+   - Chrome: Cmd+Option+I (macOS) or Ctrl+Shift+I (Linux/Windows)
+3. Go to Network tab.
+4. Filter requests by: api.spendee.com
+5. Click request: user-get-profile (or any /v1.4/... API request).
+6. In Request Headers, copy:
+   - Authorization: Bearer ...
+   - device-uuid: ...
+7. (Optional, recommended) capture Firebase refreshToken if available.
+8. Pass values to wrapper:
+   client.bootstrap_from_browser(
+       authorization="Bearer <token>",
+       device_uuid="<device-uuid>",
+       refresh_token="<optional-refresh-token>",
+       email="<optional-email>",
+   )
+"""
 
     def __init__(
         self,
@@ -83,6 +103,14 @@ class Spendee(Session):
         if email:
             self._email = email.strip()
         self._save_credentials()
+
+    @classmethod
+    def get_browser_bootstrap_instructions(cls) -> str:
+        return cls.BROWSER_BOOTSTRAP_INSTRUCTIONS.format(web_login_url=cls.WEB_LOGIN_URL).strip()
+
+    @classmethod
+    def print_browser_bootstrap_instructions(cls) -> None:
+        print(cls.get_browser_bootstrap_instructions())
 
     @staticmethod
     def _default_credential_store_path() -> Path:
