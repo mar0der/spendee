@@ -8,6 +8,7 @@ Python client focused on **confirmed working** Spendee integrations as of Februa
   - Firebase token chain
   - `v3/auth/login`
   - Existing session injection via `set_session(...)`
+  - Browser-assisted token bootstrap (Apple/Google SSO friendly)
   - Automatic refresh-token persistence (Linux-friendly)
 - Confirmed REST reads:
   - User profile
@@ -41,6 +42,18 @@ The previous wrapper included many endpoints that are deprecated or unverified a
   - `~/.config/spendee/credentials.json`
 - File mode is set to `600`.
 - On next runs, wrapper uses stored `refresh_token` to mint fresh access tokens automatically.
+
+## Apple/Google Sign-In (No Password)
+
+Use browser-assisted bootstrap:
+
+1. Open [https://app.spendee.com](https://app.spendee.com) and sign in with Apple/Google.
+2. In browser DevTools Network, copy:
+   - `Authorization` header value (`Bearer ...`)
+   - `device-uuid` header value
+   - Optional but recommended: Firebase `refreshToken` if available
+3. Call `bootstrap_from_browser(...)` once.
+4. Wrapper persists credentials for next OpenClaw runs.
 
 ## Verification Matrix
 
@@ -76,4 +89,19 @@ client.user_login(timezone_id="Asia/Dubai", global_currency="AED")
 # Next runs: no password needed, refresh token is loaded from ~/.config/spendee/credentials.json
 client2 = Spendee(email="you@example.com")
 profile = client2.user_get_profile()
+```
+
+## Example (browser-assisted bootstrap for SSO)
+
+```python
+from spendee import Spendee
+
+client = Spendee(email="you@example.com")
+client.bootstrap_from_browser(
+    authorization="Bearer <copied-bearer>",
+    device_uuid="<copied-device-uuid>",
+    refresh_token="<optional-refresh-token>",
+)
+
+profile = client.user_get_profile()
 ```

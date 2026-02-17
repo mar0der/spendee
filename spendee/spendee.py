@@ -22,6 +22,7 @@ class Spendee(Session):
     - https://api.spendee.com/ (legacy REST reads + auth bootstrap)
     - https://firestore.googleapis.com/ (real app transaction writes)
     """
+    WEB_LOGIN_URL = "https://app.spendee.com"
 
     def __init__(
         self,
@@ -52,6 +53,35 @@ class Spendee(Session):
     def set_session(self, access_token: str, device_uuid: Optional[str] = None) -> None:
         self._access_token = access_token
         self._device_uuid = device_uuid
+        self._save_credentials()
+
+    @staticmethod
+    def parse_bearer(authorization: str) -> str:
+        value = (authorization or "").strip()
+        if not value:
+            raise SpendeeError("Missing Authorization value.")
+        if value.lower().startswith("bearer "):
+            token = value[7:].strip()
+            if not token:
+                raise SpendeeError("Bearer token is empty.")
+            return token
+        return value
+
+    def bootstrap_from_browser(
+        self,
+        authorization: str,
+        device_uuid: str,
+        refresh_token: Optional[str] = None,
+        email: Optional[str] = None,
+    ) -> None:
+        self._access_token = self.parse_bearer(authorization)
+        self._device_uuid = device_uuid.strip()
+        if not self._device_uuid:
+            raise SpendeeError("Missing device_uuid.")
+        if refresh_token:
+            self._refresh_token = refresh_token.strip()
+        if email:
+            self._email = email.strip()
         self._save_credentials()
 
     @staticmethod
