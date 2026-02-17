@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -22,13 +25,16 @@ class Spendee(Session):
 
     def __init__(
         self,
-        email: str,
-        password: str,
+        email: str = "",
+        password: Optional[str] = None,
         base_url: str = "https://api.spendee.com/",
         firestore_project: str = "spendee-app",
         google_client_id: str = "AIzaSyCCJPDxVNVFEARQ-LxH7q2aZtdQJGGFO84",
         access_token: Optional[str] = None,
         device_uuid: Optional[str] = None,
+        refresh_token: Optional[str] = None,
+        credential_store_path: Optional[str] = None,
+        persist_credentials: bool = True,
     ):
         self.base_url = base_url
         self.firestore_project = firestore_project
@@ -37,11 +43,59 @@ class Spendee(Session):
         self._google_client_id = google_client_id
         self._access_token = access_token
         self._device_uuid = device_uuid
+        self._refresh_token = refresh_token
+        self._persist_credentials = persist_credentials
+        self._credential_store_path = Path(credential_store_path).expanduser() if credential_store_path else self._default_credential_store_path()
         super().__init__()
+        self._load_credentials()
 
     def set_session(self, access_token: str, device_uuid: Optional[str] = None) -> None:
         self._access_token = access_token
         self._device_uuid = device_uuid
+        self._save_credentials()
+
+    @staticmethod
+    def _default_credential_store_path() -> Path:
+        return Path.home() / ".config" / "spendee" / "credentials.json"
+
+    def _load_credentials(self) -> None:
+        if not self._persist_credentials:
+            return
+        if not self._credential_store_path.exists():
+            return
+
+        try:
+            raw = self._credential_store_path.read_text()
+            data = json.loads(raw)
+        except Exception:
+            return
+
+        stored_email = data.get("email") or ""
+        if self._email and stored_email and self._email != stored_email:
+            return
+
+        if not self._email and stored_email:
+            self._email = stored_email
+
+        if not self._refresh_token:
+            self._refresh_token = data.get("refresh_token")
+        if not self._device_uuid:
+            self._device_uuid = data.get("device_uuid")
+
+    def _save_credentials(self) -> None:
+        if not self._persist_credentials:
+            return
+        if not self._refresh_token and not self._device_uuid:
+            return
+
+        self._credential_store_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "email": self._email,
+            "refresh_token": self._refresh_token,
+            "device_uuid": self._device_uuid,
+        }
+        self._credential_store_path.write_text(json.dumps(payload))
+        os.chmod(self._credential_store_path, 0o600)
 
     def _build_url(self, version: str, endpoint: str) -> str:
         if endpoint.startswith("http"):
@@ -77,6 +131,11 @@ class Spendee(Session):
         response = None
         try:
             response = super().request(method=method, url=target, headers=headers, params=params, **kwargs)
+            if response.status_code == 401 and "auth/login" not in target:
+                self._access_token = None
+                self.user_login()
+                headers = self._headers(include_auth=True)
+                response = super().request(method=method, url=target, headers=headers, params=params, **kwargs)
             response.raise_for_status()
         except RequestException as exc:
             raise SpendeeError("Spendee returned a non-200 HTTP code.", response=response) from exc
@@ -95,9 +154,14 @@ class Spendee(Session):
     # --------- Auth (confirmed) ---------
 
     def _get_refresh_token(self, email: Optional[str] = None, password: Optional[str] = None) -> str:
+        user_email = email or self._email
+        user_password = password or self._password
+        if not user_email or not user_password:
+            raise SpendeeError("Missing email/password and no stored refresh token available.")
+
         body = {
-            "email": email or self._email,
-            "password": password or self._password,
+            "email": user_email,
+            "password": user_password,
             "returnSecureToken": True,
         }
         url = f"https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key={self._google_client_id}"
@@ -116,8 +180,10 @@ class Spendee(Session):
         return response.json()["access_token"]
 
     def user_login(self, timezone_id: str = "Asia/Dubai", global_currency: str = "AED") -> Dict[str, Any]:
-        refresh_token = self._get_refresh_token()
-        self._access_token = self._get_access_token(refresh_token)
+        if not self._refresh_token:
+            self._refresh_token = self._get_refresh_token()
+            self._save_credentials()
+        self._access_token = self._get_access_token(self._refresh_token)
 
         payload = {
             "global_currency": global_currency,
@@ -130,10 +196,13 @@ class Spendee(Session):
         result = self.post(url="auth/login", version="v3", json=payload)
         if isinstance(result, dict) and result.get("device_uuid"):
             self._device_uuid = result["device_uuid"]
+        self._save_credentials()
         return result
 
     def user_logout(self):
-        return self.post(url="auth/logout", version="v3", json={})
+        result = self.post(url="auth/logout", version="v3", json={})
+        self._access_token = None
+        return result
 
     # --------- Legacy REST reads (confirmed) ---------
 

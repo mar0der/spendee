@@ -8,6 +8,7 @@ Python client focused on **confirmed working** Spendee integrations as of Februa
   - Firebase token chain
   - `v3/auth/login`
   - Existing session injection via `set_session(...)`
+  - Automatic refresh-token persistence (Linux-friendly)
 - Confirmed REST reads:
   - User profile
   - Wallet list
@@ -29,6 +30,18 @@ The previous wrapper included many endpoints that are deprecated or unverified a
 1. Python 3.8+
 2. `pip install spendee`
 
+## Credential Persistence (Linux/OpenClaw)
+
+- Password is only needed once to bootstrap.
+- Wrapper stores:
+  - `refresh_token`
+  - `device_uuid`
+  - `email`
+- Default path:
+  - `~/.config/spendee/credentials.json`
+- File mode is set to `600`.
+- On next runs, wrapper uses stored `refresh_token` to mint fresh access tokens automatically.
+
 ## Verification Matrix
 
 See:
@@ -49,4 +62,18 @@ client.set_session(access_token="<bearer>", device_uuid="<device-uuid>")
 profile = client.user_get_profile()
 wallets = client.wallet_get_all()
 wallet_map = client.wallet_uuid_map()
+```
+
+## Example (password once, then auto-refresh)
+
+```python
+from spendee import Spendee
+
+# First run: provide password once
+client = Spendee(email="you@example.com", password="your_password")
+client.user_login(timezone_id="Asia/Dubai", global_currency="AED")
+
+# Next runs: no password needed, refresh token is loaded from ~/.config/spendee/credentials.json
+client2 = Spendee(email="you@example.com")
+profile = client2.user_get_profile()
 ```
